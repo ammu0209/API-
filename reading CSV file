@@ -1,0 +1,47 @@
+from flask import Flask, request, jsonify
+import pandas as pd
+
+app = Flask(__name__)
+
+@app.route('/analyze', methods=['POST'])
+def analyze_csv():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files['emp.csv']
+
+    if file.filename == 'emp.csv':
+        return jsonify({"error": "No selected file"}), 400
+
+    try:
+        df = pd.read_csv(file)
+
+        if 'Edept' not in df.columns or 'Ename' not in df.columns or 'Esalary' not in df.columns:
+            return jsonify({"error": "CSV must contain 'Edept', 'Ename', and 'Esalary' columns"}), 400
+
+        result = {}
+
+        for dept in df['Edept'].unique():
+            dept_data = df[df['Edept'] == dept]
+            max_row = dept_data.loc[dept_data['Esalary'].idxmax()]
+            min_row = dept_data.loc[dept_data['Esalary'].idxmin()]
+
+            result[dept] = {
+                'highest': {
+                    'name': max_row['Ename'],
+                    'salary': int(max_row['Esalary'])
+                },
+                'lowest': {
+                    'name': min_row['Ename'],
+                    'salary': int(min_row['Esalary'])
+                }
+            }
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
